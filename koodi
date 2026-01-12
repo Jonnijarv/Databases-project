@@ -1,0 +1,373 @@
+CREATE TABLE Alennusryhmä(
+     ryhmä TEXT PRIMARY KEY
+);
+CREATE TABLE Asiakas(
+     tunnus integer not null primary key,
+     henkilötiedot text,
+     alennusryhmä text not null,
+     foreign key (alennusryhmä) references Alennusryhmä(ryhmä)
+);
+create table Lippu(
+    tunnus integer not null primary key,
+    aloitusaika text,
+    omistaja text,
+    lipunkesto INTEGER,
+    alennusryhmä TEXT,
+    käyttöalue INTEGER,
+    FOREIGN KEY (lipunkesto, alennusryhmä, käyttöalue)
+        REFERENCES Lipputyyppi(lipunkesto, alennusryhmä, käyttöalue)
+);
+create table Lipputyyppi(
+    lipunkesto integer not null,
+    alennusryhmä text not null references alennusryhmä(ryhmä),
+    käyttöalue integer not null references Käyttöalue(aluetunnus),
+    hinta INTEGER,
+    nimi TEXT,
+    primary key(lipunkesto, alennusryhmä, käyttöalue)
+);
+
+create table Käyttöalue(
+    aluetunnus integer not null, 
+    PRIMARY KEY(aluetunnus)
+);
+
+create table Vyöhyke(
+    vyöhyketunnus integer not null primary key
+);
+
+create table KäyttöalueVyöhyke(
+    aluetunnus integer not null REFERENCES Käyttöalue(aluetunnus), 
+    vyöhyketunnus integer not null REFERENCES Vyöhyke(vyöhyketunnus),
+    PRIMARY KEY(aluetunnus, vyöhyketunnus)
+);
+
+create table Pysäkki(
+    pysäkkitunnus integer not null primary key,
+    vyöhyke integer not null references Vyöhyke(vyöhyketunnus)
+);
+
+create table PysäkitLinjalla(
+    linjatunnus integer not null references Linja(linjatunnus),
+    pysäkkitunnus integer not null references Pysäkki(pysäkkitunnus),
+    PRIMARY KEY(linjatunnus, pysäkkitunnus)
+);
+
+create table Linja(
+    linjatunnus integer not null primary key,
+    ajoneuvotyyppi text not null references Ajoneuvotyyppi(ajoneuvotyyppi)
+);
+
+create table Aikataulu(
+    linja INTEGER REFERENCES Linja(linjatunnus),
+    lähtöaika TEXT NOT NULL,
+    tyyppi TEXT CHECK (tyyppi IN ("Arki", "Lauantai", "Pyhä")),
+    suunta INTEGER CHECK (suunta IN (0,1)),
+    PRIMARY KEY(linja, lähtöaika, tyyppi, suunta)
+);
+
+create table Ajoneuvotyyppi(
+    ajoneuvotyyppi TEXT PRIMARY KEY
+);
+
+create table Ajoneuvomalli(
+    malli text not null PRIMARY KEY,
+    ajoneuvotyyppi text not null REFERENCES Ajoneuvotyyppi(ajoneuvotyyppi),
+    kappalemäärä integer check (kappalemäärä>=0),
+    kapasiteetti integer check (kapasiteetti>0)
+);
+
+create table Ajoneuvo(
+    rekisteritunnus text not null primary key,
+    ajoneuvomalli text not null references Ajoneuvomalli(malli),
+    tila text not null check(tila in("käytössä", "vapaa", "rikki", "huollossa"))
+);
+
+create table Kuljettaja(
+    tunnus integer not null primary key,
+    henkilötiedot text
+);
+
+create table Ajokerta(
+    ajotunnus integer not null primary key,
+    käytettyajoneuvo text references ajoneuvo(rekisteritunnus),
+    kuski integer references kuljettaja(tunnus),
+    ajankohta text,
+    suunta integer check(suunta in(0,1)),
+    linja INTEGER references Linja(linjatunnus)
+);
+
+create table Linjapätevyydet(
+    kuljettaja integer not null references Kuljettaja(tunnus),
+    linja integer references Linja(linjatunnus),
+    PRIMARY KEY(kuljettaja, linja)
+);
+
+create table Ajoneuvopätevyydet(
+    kuljettaja integer not null references Kuljettaja(tunnus),
+    ajoneuvotyyppi TEXT references Ajoneuvotyyppi(ajoneuvotyyppi),
+    PRIMARY KEY(kuljettaja, ajoneuvotyyppi)
+);
+
+create table Työvuoro(
+    kuljettaja integer not null references Kuljettaja(tunnus),
+    alku text not null,
+    loppu text not null,
+    primary key(kuljettaja,alku,loppu)
+);
+create table LomaSairauspäivä(
+    kuljettaja integer not null references Kuljettaja(tunnus),
+    alku text not null,
+    loppu text not null,
+    tyyppi text not null check(tyyppi in("loma","sairaus")),
+    primary key(kuljettaja,alku,loppu)
+);
+create table Nousu(
+    nousutunnus integer not null primary key,
+    ajokerta integer not null references Ajokerta(ajotunnus),
+    käytettylippu integer not null references Lippu(tunnus),
+    pysäkki integer not null references Pysäkki(pysäkkitunnus)
+);
+
+CREATE INDEX kuskienlomasairaus ON LomaSairausPäivä(kuljettaja);
+
+CREATE INDEX kuskintyöt ON Työvuoro(kuljettaja);
+
+CREATE INDEX mahdollisetKuskit ON Työvuoro(alku, loppu);
+
+CREATE INDEX kuskienajot ON Ajokerta(kuski);
+
+CREATE INDEX pysäkkiNro ON PysäkitLinjalla(pysäkkitunnus);
+
+--- Ei ole PRIMARY KEY
+
+CREATE INDEX lippujenomistajat ON Lippu(omistaja);
+
+CREATE INDEX ajankohdanajot ON Ajokerta(ajankohta);
+
+CREATE INDEX ajoneuvonajot ON Ajokerta(käytettyajoneuvo);
+
+-- Alennusryhmät
+INSERT INTO Alennusryhmä VALUES 
+('Opiskelija'), 
+('Eläkeläinen'), 
+('Aikuinen');
+
+-- Käyttöalueet
+INSERT INTO Käyttöalue VALUES 
+(1), 
+(2), 
+(3);
+
+-- Vyöhykkeet
+INSERT INTO Vyöhyke VALUES 
+(10), 
+(20), 
+(30), 
+(40), 
+(50);
+
+-- Käyttöalueen vyöhykkeet
+INSERT INTO KäyttöalueVyöhyke VALUES 
+(1, 10), 
+(1, 20), 
+(2, 30), 
+(2, 40),
+(3, 10), 
+(3, 50);
+
+-- Ajoneuvotyypit
+INSERT INTO Ajoneuvotyyppi VALUES 
+('Bussi'), 
+('Raitiovaunu');
+
+-- Ajoneuvomallit
+INSERT INTO Ajoneuvomalli VALUES 
+('Volvo X', 'Bussi', 1, 40), 
+('Mercedes M', 'Bussi', 1, 35),
+('Skoda T', 'Raitiovaunu', 1, 100);
+
+-- Ajoneuvot ja pseudolaukaisimet
+INSERT INTO Ajoneuvo VALUES 
+('ABC-123', 'Volvo X', 'käytössä'), 
+('DEF-456', 'Mercedes M', 'huollossa'), 
+('XYZ-789', 'Skoda T', 'vapaa');
+
+UPDATE Ajoneuvomalli
+SET kappalemäärä = kappalemäärä + 2
+WHERE malli = "Volvo XX";
+
+UPDATE Ajoneuvomalli
+SET kappalemäärä = kappalemäärä + 1
+WHERE malli = "Skoda TT";
+
+-- Pysäkit
+INSERT INTO Pysäkki VALUES 
+(100, 10), 
+(200, 20), 
+(300, 30), 
+(400, 40), 
+(500, 50), 
+(600, 10), 
+(700, 20), 
+(800, 30), 
+(900, 40), 
+(1000, 50), 
+(1100, 10), 
+(1200, 20), 
+(1300, 30), 
+(1400, 40), 
+(1500, 50);
+
+-- Linjat
+INSERT INTO Linja VALUES 
+(1, 'Bussi'), 
+(2, 'Raitiovaunu'), 
+(3, 'Bussi'), 
+(4, 'Raitiovaunu'), 
+(5, 'Bussi');
+
+-- Pysäkit linjoilla
+INSERT INTO PysäkitLinjalla VALUES 
+-- Linja 1
+(1, 100), (1, 200), (1, 300),
+-- Linja 2
+(2, 300), (2, 400), (2, 500),
+-- Linja 3
+(3, 600), (3, 700), (3, 800),
+-- Linja 4
+(4, 900), (4, 1000), (4, 1100),
+-- Linja 5
+(5, 1200), (5, 1300), (5, 1400), (5, 1500);
+
+-- Aikataulut
+INSERT INTO Aikataulu VALUES 
+-- Linja 1
+(1, '08:00', 'Arki' ,1), 
+(1, '16:00', 'Lauantai',1),
+(1, '12:00', 'Pyhä',1),
+(1, '07:00', 'Arki' ,0), 
+(1, '15:00', 'Lauantai',0),
+(1, '11:00', 'Pyhä',0),
+-- Linja 2
+(2, '10:00', 'Arki',1),
+(2, '18:00', 'Lauantai',1),
+(2, '09:00', 'Arki',0),
+(2, '17:00', 'Lauantai',0),
+-- Linja 3
+(3, '07:30', 'Arki',1),
+(3, '14:00', 'Lauantai',1),
+(3, '06:30', 'Arki',1),
+(3, '13:00', 'Lauantai',1),
+-- Linja 4
+(4, '09:00', 'Arki',0),
+(4, '15:30', 'Pyhä',1),
+-- Linja 5
+(5, '06:45', 'Arki',0),
+(5, '13:15', 'Lauantai',0),
+(5, '17:00', 'Pyhä',0),
+(5, '07:45', 'Arki',1),
+(5, '14:15', 'Lauantai',1),
+(5, '18:00', 'Pyhä',1);
+
+
+-- Kuljettajat
+INSERT INTO Kuljettaja VALUES 
+(1, 'Maija Meikäläinen'), 
+(2, 'Kari Kuljettaja'), 
+(3, 'Pekka Pätevä');
+
+-- Ajoneuvopätevyydet
+INSERT INTO Ajoneuvopätevyydet VALUES 
+(1, 'Bussi'), 
+(2, 'Raitiovaunu'), 
+(3, 'Bussi'), 
+(3, 'Raitiovaunu');
+
+-- Linjapätevyydet
+INSERT INTO Linjapätevyydet VALUES 
+(1, 1), 
+(2, 1),
+(2, 2), 
+(3, 1);
+
+-- Työvuorot
+INSERT INTO Työvuoro VALUES 
+(1, '2025-05-06 07:00', '2025-05-06 15:00'), 
+(2, '2025-05-06 14:00', '2025-05-06 22:00');
+
+-- Lomat ja sairauspoissaolot
+INSERT INTO LomaSairauspäivä VALUES 
+(3, '2025-05-07', '2025-05-10', 'loma'),
+(1, '2025-05-01', '2025-05-05', 'loma'),
+(2, '2025-05-06', '2025-05-08', 'sairaus'),
+(2, '2025-05-07', '2025-05-10', 'loma'),
+(1, '2025-06-01', '2025-06-07', 'loma'),
+(3, '2025-06-15', '2025-06-16', 'sairaus'),
+(3, '2025-07-01', '2025-07-14', 'loma');
+
+-- Ajokerrat
+INSERT INTO Ajokerta VALUES 
+(1, 'ABC-123', 1, '2025-05-06 08:00', 0, 1), 
+(2, 'XYZ-789', 2, '2025-05-06 10:00', 1, 1), 
+(3, 'DEF-456', 3, '2025-05-06 12:00', 0, 3),
+(4, 'ABC-123', 1, '2025-05-07 09:00', 0, 2),
+(5, 'XYZ-789', 2, '2025-05-07 07:30', 1, 3),
+(6, 'ABC-123', 3, '2025-05-07 06:30', 1, 3),
+(7, 'DEF-456', 1, '2025-05-07 09:00', 0, 4),
+(8, 'XYZ-789', 2, '2025-05-07 06:45', 0, 5),
+(9, 'DEF-456', 3, '2025-05-07 07:45', 1, 5),
+(10, 'DEF-456', 1, '2025-05-07 08:00', 1, 1),
+(12, 'XYZ-789', 2, '2025-05-07 07:00', 0, 1),
+(13, 'ABC-123', 3, '2025-05-07 10:00', 1, 2);
+
+-- Asiakkaat
+INSERT INTO Asiakas VALUES 
+(101, 'Teppo Testaaja', 'Opiskelija'), 
+(102, 'Anna Aikuinen', 'Aikuinen'), 
+(103, 'Ella Eläkeläinen', 'Eläkeläinen');
+
+-- Lipputyypit
+INSERT INTO Lipputyyppi VALUES 
+(30, 'Opiskelija', 1, 3, '30 min Opiskelija Alue 1'),
+(60, 'Aikuinen', 2, 5, '1h Aikuinen Alue 2'),
+(0, 'Aikuinen', 1, 3, 'Kertalippu alue 1'),
+(0, 'Aikuinen', 2, 3, 'Kertalippu alue 2'),
+(0, 'Aikuinen', 3, 4, 'Kertalippu alue 3'),
+(120, 'Eläkeläinen', 3, 4, '2h Eläkeläinen Alue 3');
+
+-- Liput
+INSERT INTO Lippu VALUES 
+(201, '2025-05-06 08:05', '101', 30, 'Opiskelija', 1), 
+(202, '2025-05-06 10:10', '102', 60, 'Aikuinen', 2), 
+(203, '2025-05-06 11:00', '103', 120, 'Eläkeläinen', 3);
+
+-- Nousut
+INSERT INTO Nousu VALUES 
+(301, 1, 201, 100), 
+(302, 2, 202, 400), 
+(303, 3, 203, 500);
+
+CREATE INDEX kuskienlomasairaus ON LomaSairausPäivä(kuljettaja);
+
+CREATE INDEX kuskintyöt ON Työvuoro(kuljettaja);
+
+CREATE INDEX mahdollisetKuskit ON Työvuoro(alku, loppu);
+
+CREATE INDEX kuskienajot ON Ajokerta(kuski);
+
+CREATE INDEX pysäkkiNro ON PysäkitLinjalla(pysäkkitunnus);
+
+--- Ei ole PRIMARY KEY
+
+CREATE INDEX lippujenomistajat ON Lippu(omistaja);
+
+CREATE INDEX ajankohdanajot ON Ajokerta(ajankohta);
+
+CREATE INDEX ajoneuvonajot ON Ajokerta(käytettyajoneuvo);
+
+CREATE VIEW PysäkkienLähdöt AS
+    Select pysäkkitunnus, linjatunnus AS linja, suunta, 
+        lähtöaika AS lähtöPäätepysäkiltä, tyyppi
+    From PysäkitLinjalla
+    Natural Join Linja
+    Join Aikataulu ON linjatunnus = linja;
